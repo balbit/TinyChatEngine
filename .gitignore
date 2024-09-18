@@ -15,7 +15,7 @@
 
 llm/assets/
 models/
-evals/data/
+llm/evals/data/
 *.bin
 !llama_vocab.bin
 !starcoder_vocab.bin
