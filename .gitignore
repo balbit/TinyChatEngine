@@ -40,3 +40,5 @@ checkpoints/
 output.wav
 tmpfile
 TTS/
+
+experiments/saved_models
