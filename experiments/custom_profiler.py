@@ -2,6 +2,7 @@ import warnings
 import math
 from torchprofile.handlers import handlers as original_handlers
 from torchprofile.utils.trace import trace
+from tqdm import tqdm
 
 __all__ = ['profile_macs', 'CustomMACProfiler']
 
@@ -61,7 +62,7 @@ class CustomMACProfiler:
 
         # Trace the model to get computation graph
         graph = trace(model, args, kwargs)
-        for node in graph.nodes:
+        for node in tqdm(graph.nodes, desc="Profiling MACs"):
             for operators, func in self.handlers:
                 if isinstance(operators, str):
                     operators = [operators]
