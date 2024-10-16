@@ -37,7 +37,7 @@ class CustomMACProfiler:
 
     def profile_macs(self, model, args=(), kwargs=None, reduction=sum, return_dict_format='all'):
         """
-        Profile MACs (Multiply-Accumulate Operations) of a PyTorch model.
+        Profile MACs of a PyTorch model.
 
         Args:
             model (torch.nn.Module): The PyTorch model to be profiled.

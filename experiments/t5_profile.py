@@ -22,6 +22,18 @@ def load_or_download_model(local_path, model_name, subfolder=None, variant=None)
     
     return model
 
+def profile_t5(model, seq_len=77, device="cpu", print_stats=True):
+    VOCAB_SIZE = model.config.vocab_size
+
+    model = model.to(device)
+    input_ids = torch.randint(0, 32100, (1, seq_len)).to(device)
+
+    macs, results = CustomMACProfiler().profile_macs(t5, input_ids, reduction=sum, return_dict_format='both')
+    if print_stats:
+        print(f"GOPs: {macs / (10**9)}")
+        print(results)
+    return macs, results
+
 if __name__ == "__main__":
     local_model_path = "./saved_models/t5_encoder_3"
     model_name = "stabilityai/stable-diffusion-3-medium-diffusers"
@@ -31,7 +43,5 @@ if __name__ == "__main__":
     t5 = load_or_download_model(local_model_path, model_name, subfolder=subfolder, variant=variant)
     print("model loaded")
 
-    macs, breakdown = CustomMACProfiler().profile_macs(t5, reduction=sum, return_dict_format='both')
-
-    print("Macs: "+ str(macs))
-    print(breakdown)
+    
+    profile_t5(t5)
