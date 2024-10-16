@@ -1,0 +1,35 @@
+CC = g++
+CFLAGS = -O3 -Wall -pthread -std=c++17
+LDFLAGS = 
+LIB_DIR = ../kernels
+INCLUDE_DIRS = -I$(LIB_DIR) -I./include -I./include/nn_modules -I./json/single_include/ -I./half-2.2.0/include/
+
+# Check for ARM NEON and Accelerate framework
+ifdef USE_ACCELERATE
+    CFLAGS += -DUSE_ACCELERATE
+    LDFLAGS += -framework Accelerate
+endif
+
+ifdef QM_ARM
+    CFLAGS += -DQM_ARM
+    LDFLAGS += -march=armv8-a+simd
+endif
+
+TARGET_DIR = ../experiments/
+KERNEL_DIR = ../kernels/
+
+SRC = $(TARGET_DIR)benchmark.cc ../kernels/pthread_pool.cc ../kernels/neon/matmul_neon_int4.cc
+HEADERS = ../kernels/matmul.h ../kernels/pthread_pool.h llm/include/common.h
+OBJ = $(SRC:.cpp=.o)
+
+all: benchmark
+	$(TARGET_DIR)benchmark
+
+benchmark: $(OBJ)
+	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -o $(TARGET_DIR)benchmark $(OBJ) $(LDFLAGS)
+
+%.o: %.cc $(HEADERS)
+	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -c $< -o $@
+
+clean:
+	rm -f $(OBJ) $(TARGET_DIR)benchmark
