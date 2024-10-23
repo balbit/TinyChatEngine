@@ -6,6 +6,7 @@ from custom_profiler import profile_macs, CustomMACProfiler
 import torch
 from torch.profiler import profile, record_function, ProfilerActivity
 import time
+import argparse
 
 def load_or_download_model(local_path, model_name, subfolder=None, variant=None):
     if os.path.exists(local_path):
@@ -70,7 +71,12 @@ if __name__ == "__main__":
     t5 = load_or_download_model(local_model_path, model_name, subfolder=subfolder, variant=variant)
     print("model loaded")
 
-    seq_len = 1
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Profile T5 model with specified sequence length.")
+    parser.add_argument("--seq_len", type=int, default=80, help="Sequence length for the input tensor.")
+    args = parser.parse_args()
+
+    seq_len = args.seq_len
     profile_t5_macs(seq_len=seq_len, model=t5)
 
     num_threads = 6

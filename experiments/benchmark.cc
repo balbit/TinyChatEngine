@@ -37,7 +37,9 @@ int main() {
         {40, 40, 40},
         {400, 400, 400},
         {4096, 4096, 4096},
-        {1, 32000, 4096}
+        {1, 32000, 4096},
+        {80, 4096, 4096}, // T5 matmul shape 1, pytorch 7.25 ms
+        {80, 4096, 10240}, // T5 matmul shape 2, pytorch 13.6 ms
     };
 
     for (auto& bench : benchmarks) {
@@ -67,6 +69,10 @@ int main() {
 
         // Output the results
         std::cout << "Benchmark (" << m << "x" << k << "x" << n << ") - Time elapsed: " << elapsed_time << " ms" << std::endl;
+
+        // Calculate GOPs
+        double gflops = 2.0 * m * n * k / (elapsed_time * 1e6);
+        std::cout << "GFLOPs: " << gflops << std::endl;
 
         // Cleanup
         cleanup_matrix(&A);

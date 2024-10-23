@@ -18,18 +18,18 @@ endif
 TARGET_DIR = ../experiments/
 KERNEL_DIR = ../kernels/
 
-SRC = $(TARGET_DIR)benchmark.cc ../kernels/pthread_pool.cc ../kernels/neon/matmul_neon_int4.cc ../kernels/neon/matmul_neon_fp32.cc
+SRC = $(TARGET_DIR)benchmark_t5.cc ../kernels/pthread_pool.cc ../kernels/neon/matmul_neon_int4.cc ../kernels/neon/matmul_neon_fp32.cc
 HEADERS = ../kernels/matmul.h ../kernels/pthread_pool.h llm/include/common.h
 OBJ = $(SRC:.cpp=.o)
 
-all: benchmark
-	$(TARGET_DIR)benchmark
+all: benchmark_t5
+	$(TARGET_DIR)benchmark_t5
 
-benchmark: $(OBJ)
-	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -o $(TARGET_DIR)benchmark $(OBJ) $(LDFLAGS)
+benchmark_t5: $(OBJ)
+	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -o $(TARGET_DIR)benchmark_t5 $(OBJ) $(LDFLAGS)
 
 %.o: %.cc $(HEADERS)
 	$(CC) $(CFLAGS) $(INCLUDE_DIRS) -c $< -o $@
 
 clean:
-	rm -f $(OBJ) $(TARGET_DIR)benchmark
+	rm -f $(OBJ) $(TARGET_DIR)benchmark_t5
