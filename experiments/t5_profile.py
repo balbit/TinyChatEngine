@@ -68,7 +68,10 @@ if __name__ == "__main__":
     subfolder = "text_encoder_3"
     variant = "fp16"
 
+    start_load_time = time.time()
     t5 = load_or_download_model(local_model_path, model_name, subfolder=subfolder, variant=variant)
+    end_load_time = time.time()
+    print(f"Time to load model: {end_load_time - start_load_time:.6f} seconds")
     print("model loaded")
 
     # Parse command-line arguments
@@ -82,6 +85,6 @@ if __name__ == "__main__":
     num_threads = 6
     torch.set_num_threads(num_threads)
     print(f"Number of torch threads: {torch.get_num_threads()}")
-    profile_t5_speed(seq_len=seq_len, model=t5)
+    # profile_t5_speed(seq_len=seq_len, model=t5)
 
     measure_wall_clock_time(seq_len=seq_len, model=t5)

@@ -18,7 +18,11 @@ endif
 TARGET_DIR = ../experiments/
 KERNEL_DIR = ../kernels/
 
-SRC = $(TARGET_DIR)benchmark.cc ../kernels/pthread_pool.cc ../kernels/neon/matmul_neon_int4.cc ../kernels/neon/matmul_neon_fp32.cc
+SRC = $(TARGET_DIR)benchmark.cc ../kernels/pthread_pool.cc
+# ../kernels/neon/matmul_neon_int4.cc ../kernels/neon/matmul_neon_fp32.cc
+LIB_AVX_SRC = $(wildcard $(LIB_DIR)/avx/*.cc)
+SRC += $(LIB_AVX_SRC)
+CFLAGS += -mavx2 -mfma -ffast-math -DUSE_INT8_INT4_PRODUCT -fpermissive -DQM_x86
 HEADERS = ../kernels/matmul.h ../kernels/pthread_pool.h llm/include/common.h
 OBJ = $(SRC:.cpp=.o)
 

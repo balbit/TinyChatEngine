@@ -4,10 +4,12 @@
 #include <tuple>
 #include <vector>
 #include <cstring>
+#include <random>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fstream>
+#include <sys/mman.h>
 #include "../kernels/matmul.h"
 
 // Helper function to calculate time difference in ms
@@ -16,17 +18,47 @@ double time_diff(struct timeval *start, struct timeval *end) {
 }
 
 // Precision types
-enum class Precision { FP32, FP16, INT8, INT4 };
+enum class Precision { FP32, FP16, INT8, INT4, INT32 };
 
 // Function to write dummy data to a file for memory-mapping later
-void write_dummy_data_to_file(const char *filename, size_t data_size) {
+void write_random_data_to_file(const char *filename, size_t data_size, Precision precision = Precision::FP32) {
     std::ofstream file(filename, std::ios::binary);
     if (file.is_open()) {
-        std::vector<uint8_t> dummy_data(data_size, 0); // Create dummy data
-        file.write(reinterpret_cast<const char *>(dummy_data.data()), dummy_data.size());
+        std::vector<uint8_t> random_data(data_size);
+
+        std::random_device rd;  // Random number generator
+        std::mt19937 gen(rd());
+        
+        // Different distributions for different precisions
+        if (precision == Precision::FP32) {
+            std::uniform_real_distribution<float> dist(-1.0, 1.0);
+            float *data_ptr = reinterpret_cast<float *>(random_data.data());
+            for (size_t i = 0; i < data_size / sizeof(float); i++) {
+                data_ptr[i] = dist(gen);
+            }
+        } else if (precision == Precision::FP16) {
+            std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+            float16_t *data_ptr = reinterpret_cast<float16_t *>(random_data.data());
+            for (size_t i = 0; i < data_size / sizeof(float16_t); i++) {
+                data_ptr[i] = dist(gen);
+            }
+        } else if (precision == Precision::INT8) {
+            std::uniform_int_distribution<int8_t> dist(-128, 127);
+            int8_t *data_ptr = reinterpret_cast<int8_t *>(random_data.data());
+            for (size_t i = 0; i < data_size / sizeof(int8_t); i++) {
+                data_ptr[i] = dist(gen);
+            }
+        } else if (precision == Precision::INT4) {
+            std::uniform_int_distribution<uint8_t> dist(0, 15);
+            for (size_t i = 0; i < data_size; i++) {
+                random_data[i] = (dist(gen) & 0xF) | ((dist(gen) & 0xF) << 4);  // Pack two 4-bit values into one byte
+            }
+        }
+
+        file.write(reinterpret_cast<const char *>(random_data.data()), random_data.size());
         file.close();
     } else {
-        std::cerr << "Error: could not open file for writing dummy data.\n";
+        std::cerr << "Error: could not open file for writing random data.\n";
     }
 }
 
@@ -54,40 +86,75 @@ void initialize_mapped_matrix(struct matrix *mat, int rows, int cols, void *mapp
     mat->row = rows;
     mat->column = cols;
 
-    // Point the matrix's data pointer to the relevant portion of the memory-mapped file
+    // Calculate the initial pointer with offset
+    uintptr_t initial_ptr = reinterpret_cast<uintptr_t>(mapped_data) + offset;
+
+    // Adjust offset to ensure 32-byte alignment
+    size_t alignment = 32;
+    size_t misalignment = initial_ptr % alignment;
+    if (misalignment != 0) {
+        offset += alignment - misalignment;
+    }
+
+    void *data_ptr = (uint8_t*)mapped_data + offset;
+
     switch (precision) {
         case Precision::FP32:
-            mat->data_ptr = reinterpret_cast<float *>((uint8_t*)mapped_data + offset);
+            mat->data_ptr = reinterpret_cast<float *>(data_ptr);
             break;
         case Precision::FP16:
-            mat->half_data_ptr = reinterpret_cast<float16_t *>((uint8_t*)mapped_data + offset);
+            mat->half_data_ptr = reinterpret_cast<float16_t *>(data_ptr);
             break;
         case Precision::INT8:
-            mat->int8_data_ptr = reinterpret_cast<int8_t *>((uint8_t*)mapped_data + offset);
+            mat->int8_data_ptr = reinterpret_cast<int8_t *>(data_ptr);
             break;
         case Precision::INT4:
-            mat->int4_data_ptr = reinterpret_cast<uint8_t *>((uint8_t*)mapped_data + offset);
+            mat->int4_data_ptr = reinterpret_cast<uint8_t *>(data_ptr);
             break;
     }
+
+    // Use madvise to tell the OS to prefetch data into memory
+    size_t data_size = rows * cols * sizeof(float); // Adjust based on precision
+    switch (precision) {
+        case Precision::FP32:
+            data_size = rows * cols * sizeof(float);
+            break;
+        case Precision::FP16:
+            data_size = rows * cols * sizeof(float16_t);
+            break;
+        case Precision::INT8:
+            data_size = rows * cols * sizeof(int8_t);
+            break;
+        case Precision::INT4:
+            data_size = (rows * cols + 1) / 2; // INT4 packs two values per byte
+            break;
+    }
+
+    madvise(data_ptr, data_size, MADV_WILLNEED);
 }
 
 void initialize_allocated_matrix(struct matrix *mat, int rows, int cols, Precision precision) {
     mat->row = rows;
     mat->column = cols;
 
-    // Dynamically allocate memory for the matrix based on the precision
+    size_t total_elements = rows * cols;
+
+    // Allocate aligned memory based on the precision
     switch (precision) {
         case Precision::FP32:
-            mat->data_ptr = new float[rows * cols];  // Allocate space for FP32 matrix
+            mat->data_ptr = static_cast<float *>(aligned_alloc(32, total_elements * sizeof(float)));  // 32-byte aligned for AVX
             break;
         case Precision::FP16:
-            mat->half_data_ptr = new float16_t[rows * cols];  // Allocate space for FP16 matrix
+            mat->half_data_ptr = static_cast<float16_t *>(aligned_alloc(32, total_elements * sizeof(float16_t)));  // Aligned for FP16
+            break;
+        case Precision::INT32:
+            mat->int32_data_ptr = static_cast<int32_t *>(aligned_alloc(32, total_elements * sizeof(int32_t)));  // 32-byte aligned for AVX
             break;
         case Precision::INT8:
-            mat->int8_data_ptr = new int8_t[rows * cols];  // Allocate space for INT8 matrix
+            mat->int8_data_ptr = static_cast<int8_t *>(aligned_alloc(32, total_elements * sizeof(int8_t)));  // Aligned for INT8
             break;
         case Precision::INT4:
-            mat->int4_data_ptr = new uint8_t[rows * cols / 2];  // Allocate space for INT4 matrix
+            mat->int4_data_ptr = static_cast<uint8_t *>(aligned_alloc(32, total_elements / 2));  // Aligned for INT4
             break;
     }
 }
@@ -115,11 +182,11 @@ int main() {
     };
 
     // Calculate the total size needed for the dummy data file (based on the largest matrix size and precision)
-    size_t total_data_size = 1000000000; // Adjust the size as needed
+    size_t total_data_size = 3000000000; // Adjust the size as needed
     const char *dummy_data_file = "dummy_data.bin";
     
     // Create the dummy data file
-    write_dummy_data_to_file(dummy_data_file, total_data_size);
+    write_random_data_to_file(dummy_data_file, total_data_size);
 
     // Map the file to memory
     void *mapped_data = map_file_to_memory(dummy_data_file, total_data_size);
@@ -127,10 +194,14 @@ int main() {
         return -1;
     }
 
+    // madvise(mapped_data, total_data_size, MADV_WILLNEED);
+
     struct timeval tot_start, tot_end;
     gettimeofday(&tot_start, NULL);
 
     size_t offset = 0;  // Offset to where we place each matrix in the memory-mapped file
+
+
 
     for (auto &bench : benchmarks) {
         int m = std::get<0>(bench);
@@ -138,43 +209,64 @@ int main() {
         int k = std::get<2>(bench);
         int num_calls = std::get<3>(bench);
 
-        // Initialize matrices and map to relevant portions of the file
-        struct matrix A, B, C;
-        initialize_mapped_matrix(&A, m, k, mapped_data, offset, precision);
-        offset += m * k * sizeof(float);
-        initialize_mapped_matrix(&B, n, k, mapped_data, offset, precision);
-        offset += n * k * sizeof(float);
-        initialize_allocated_matrix(&C, m, n, precision);
-
-        std::cout<<"Matrix A: "<<A.row<<"x"<<A.column<<std::endl;
-
-        if (offset >= total_data_size - k * (m+n) * sizeof(float)) {
-            std::cerr << "Warning: not enough space in the dummy data file.\n";
-            offset = 0;
-        }
-
-        // Set up matmul parameters
-        struct matmul_params params;
-        params.A = A;
-        params.B = B;
-        params.C = C;
-
-        // Time the matrix multiplication operation
-        struct timeval start, end;
         double total_time = 0.0;
+        // Initialize matrices and map to relevant portions of the file
         for (int i = 0; i < num_calls; ++i) {
-            gettimeofday(&start, NULL);
+            if (offset >= total_data_size - k * (m+n) * 2 * sizeof(float)) {
+                std::cerr << "Warning: not enough space in the dummy data file.\n";
+                offset = 0;
+            }
+            struct matrix A, B, C;
+            initialize_mapped_matrix(&A, m, k, mapped_data, offset, precision);
+            offset += m * k * sizeof(float);
+            initialize_mapped_matrix(&B, n, k, mapped_data, offset, precision);
+            offset += n * k * sizeof(float);
+            initialize_allocated_matrix(&C, m, n, Precision::INT32);
 
-            matmul_op.mat_mul_accelerator_transposed_fastover_column(&params);
+            // std::cout<<"Matrix A: "<<A.row<<"x"<<A.column<<std::endl;
+
+            // Set up matmul parameters
+            struct matmul_params params;
+            params.A = A;
+            params.B = B;
+            params.C = C;
+
+            int _, num_thread = params.opt_params.num_thread;
+
+            // Time the matrix multiplication operation
+            struct timeval start, end;
+            gettimeofday(&start, NULL);
+            switch (precision) {
+                case Precision::FP32:
+                    matmul_op.mat_mul_accelerator_transposed_fastover_column(&params);
+                    break;
+                
+                case Precision::FP16:
+                    std::cerr<<"Error: FP16 not supported in this benchmark.\n";
+                    break;
+
+                case Precision::INT8:
+                    // matmul_op.mat_mul_accelerator_int8_fast_2x2_32unroll(&params);
+                    matmul_op.mat_mul_mkl_int8(&params);
+                    // matmul_op.mat_mul_accelerator_int8_fast_2x2_32unroll_nobias(&params);
+                    break;
+
+                case Precision::INT4:
+                    matmul_op.mat_mul_accelerator_int4_fast(&params);
+                    break;
+
+                default:
+                    std::cerr << "Error: Unsupported precision type.\n";
+                    break;
+            }
 
             gettimeofday(&end, NULL);
             double elapsed_time = time_diff(&start, &end);
             total_time += elapsed_time;
+
         }
-
         std::cout << "Benchmark (" << m << "x" << k << "x" << n << ") - Time elapsed (total for "
-                  << num_calls << " calls): " << total_time << " ms" << std::endl;
-
+                << num_calls << " calls): " << total_time << " ms" << std::endl;
         double gflops = 2.0 * m * n * k * num_calls / (total_time * 1e6);
         std::cout << "GFLOPs: " << gflops << std::endl;
     }

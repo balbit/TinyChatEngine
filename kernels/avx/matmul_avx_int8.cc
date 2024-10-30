@@ -5,6 +5,10 @@
 #include <cstdlib>
 #include <iostream>
 
+// #include <mkl_cblas.h>
+#include <mkl.h>
+#include <mkl_cblas.h>
+
 #include "../matmul.h"
 
 inline void assign_8int32(int *ptr, int &acc) {
@@ -1241,4 +1245,50 @@ void MatmulOperator::mat_mul_accelerator_int8_fast_2x2_32unroll_bfp32_ofp32_over
     }
 }
 
-}  // namespace matmul
+
+void MatmulOperator::mat_mul_mkl_int8(const matmul_params *params) {
+    const matrix &A = params->A;
+    const matrix &B = params->B;
+    matrix &C = const_cast<matrix&>(params->C);
+
+    // Ensure matrix dimensions are compatible for multiplication
+    assert(A.column == B.column);
+
+    // Prepare data pointers
+    int8_t *data_A = A.int8_data_ptr;
+    uint8_t *data_B = reinterpret_cast<uint8_t *>(B.int8_data_ptr); // MKL expects unsigned B
+    int32_t *data_C = C.int32_data_ptr; // Use int32_t for accumulation
+
+    int M = A.row;     // Number of rows in A
+    int N = B.column;  // Number of columns in B
+    int K = A.column;  // Number of columns in A (or rows in B)
+
+    // std::cout<<"A row: "<<A.row<<", A column: "<<A.column<<std::endl;
+    // std::cout<<"B row: "<<B.row<<", B column: "<<B.column<<std::endl;
+
+    // Define leading dimensions
+    int lda = K;  // Leading dimension of A
+    int ldb = N;  // Leading dimension of B
+    int ldc = N;  // Leading dimension of C
+
+    // Set alpha and beta (scaling factors for MKL)
+    float alpha = params->alpha;
+    float beta = params->beta;
+
+    // Zero-point offsets
+    const MKL_INT8 ao = 0; // Zero point for A
+    const MKL_INT8 bo = 0; // Zero point for B
+    MKL_INT32 co = 0;      // Zero point offset for C
+    CBLAS_OFFSET offsetc = CblasFixOffset; // Use fixed offset
+
+    // std::cout<<"MKL_INT8"<<std::endl;
+    // std::cout<<"Dimensions: M="<<M<<", N="<<N<<", K="<<K<<std::endl;
+
+    // Call MKL's s8u8s32 gemm function for int8 multiplication
+    cblas_gemm_s8u8s32(CblasRowMajor, CblasNoTrans, CblasTrans, offsetc,
+                       M, N, K, alpha, data_A, lda, ao,
+                       data_B, ldb, bo, beta, data_C, ldc, &co);
+    
+    // std::cout<<"MKL_INT8: complete"<<std::endl;
+}
+}

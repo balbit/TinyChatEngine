@@ -123,6 +123,8 @@ class MatmulOperator {
     void mat_mul_accelerator_int8_fast_2x2_32unroll_nobias_ofp32_batch(const struct matmul_params *params);
     void mat_mul_accelerator_int8_fast_2x2_32unroll_bfp32_ofp32(const struct matmul_params *params);
     void mat_mul_accelerator_int8_fast_2x2_32unroll_bfp32_ofp32_over_column(const struct matmul_params *params);
+    void mat_mul_mkl_int8(const struct matmul_params *params);
+
     // void mat_mul_accelerator_int8_fast_2x2_omp(const struct matmul_params *params);
     // int4
     void mat_mul_accelerator_int4_fast(const struct matmul_params *params);

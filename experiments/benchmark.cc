@@ -2,6 +2,7 @@
 #include <sys/time.h>
 #include <cstdlib>
 #include <cmath>
+
 #include "../kernels/matmul.h"
 
 void initialize_matrix(struct matrix* mat, int rows, int cols) {
@@ -50,7 +51,7 @@ int main() {
         // Initialize matrices
         struct matrix A, B, C;
         initialize_matrix(&A, m, k);
-        initialize_matrix(&B, n, k); // transposed B
+        initialize_matrix(&B, k, n); // transposed B
         initialize_matrix(&C, m, n);
 
         struct matmul_params params;
@@ -62,7 +63,11 @@ int main() {
         struct timeval start, end;
         gettimeofday(&start, NULL);
 
+        std::cerr<<"Benchmarking"<<std::endl;
+
         matmul_op.mat_mul_accelerator_transposed_fastover_column(&params);
+
+        std::cerr<<"Benchmarking Done"<<std::endl;
 
         gettimeofday(&end, NULL);
         double elapsed_time = time_diff(&start, &end);
