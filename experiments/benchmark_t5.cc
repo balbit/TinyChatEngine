@@ -157,6 +157,25 @@ void initialize_allocated_matrix(struct matrix *mat, int rows, int cols, Precisi
             mat->int4_data_ptr = static_cast<uint8_t *>(aligned_alloc(32, total_elements / 2));  // Aligned for INT4
             break;
     }
+
+    // initialize to zero
+    switch (precision) {
+        case Precision::FP32:
+            memset(mat->data_ptr, 0, total_elements * sizeof(float));
+            break;
+        case Precision::FP16:
+            memset(mat->half_data_ptr, 0, total_elements * sizeof(float16_t));
+            break;
+        case Precision::INT32:
+            memset(mat->int32_data_ptr, 0, total_elements * sizeof(int32_t));
+            break;
+        case Precision::INT8:
+            memset(mat->int8_data_ptr, 0, total_elements * sizeof(int8_t));
+            break;
+        case Precision::INT4:
+            memset(mat->int4_data_ptr, 0, total_elements / 2);
+            break;
+    }
 }
 
 // Function to unmap the memory after benchmarking
@@ -201,8 +220,6 @@ int main() {
 
     size_t offset = 0;  // Offset to where we place each matrix in the memory-mapped file
 
-
-
     for (auto &bench : benchmarks) {
         int m = std::get<0>(bench);
         int n = std::get<1>(bench);
@@ -230,6 +247,8 @@ int main() {
             params.A = A;
             params.B = B;
             params.C = C;
+            params.alpha = 1.0;
+            // params.beta = 0.0;
 
             int _, num_thread = params.opt_params.num_thread;
 
@@ -259,6 +278,17 @@ int main() {
                     std::cerr << "Error: Unsupported precision type.\n";
                     break;
             }
+
+            // // test the result of multiplication
+            // int32_t acc = 0;
+            // for (int k = 0; k < params.A.column; k++) {
+            //     acc += params.alpha * params.A.int8_data_ptr[0 * params.A.column + k] * (uint8_t)params.B.int8_data_ptr[0 * params.B.column + k];
+            // }
+            // int32_t expected = params.C.int32_data_ptr[0 * params.C.column + 0];
+            // std::cerr<< "Result: "<<acc<<", Expected: "<<expected<<std::endl;
+            // if (acc != expected) {
+            //     std::cerr << "Error: multiplication result does not match.\n";
+            // }
 
             gettimeofday(&end, NULL);
             double elapsed_time = time_diff(&start, &end);

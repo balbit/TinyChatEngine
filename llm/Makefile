@@ -5,6 +5,7 @@ CXXFLAGS = -std=c++11 -pthread -Ofast
 # CUDA flag
 DISABLE_CUDA ?= 0
 DEC_SHARED_MEM ?= 0
+USE_MKL ?= 0
 
 # customize define
 DEFINE =
@@ -82,10 +83,34 @@ ifeq ($(shell uname -m),x86_64)
 		endif
 	else
 # For x86_64 platforms with AVX2
-		# For Intel machines with AVX
-		LIB_AVX_SRC = $(wildcard $(LIB_DIR)/avx/*.cc)
-		LIB_SRC += $(LIB_AVX_SRC)
-		CXXFLAGS += -mavx2 -mfma -ffast-math -DUSE_INT8_INT4_PRODUCT -fpermissive -DQM_x86
+		ifeq ($(USE_MKL),1)
+            $(info Using MKL kernels instead of AVX kernels)
+            # Set MKLROOT (adjust this path if necessary)
+            MKLROOT ?= /home/elliotliu/miniconda
+
+            # Add MKL compiler flags
+            CXXFLAGS += -DMKL_ILP64 -DUSE_MKL -m64 -mavx2 -mfma -ffast-math -DUSE_INT8_INT4_PRODUCT -DQM_x86
+
+            # Add MKL include directories
+            INCLUDE_DIRS += -I$(MKLROOT)/include
+
+            # Add MKL libraries to LDFLAGS
+            LDFLAGS += -Wl,--start-group \
+                       $(MKLROOT)/lib/libmkl_intel_ilp64.so \
+                       $(MKLROOT)/lib/libmkl_gnu_thread.so \
+                       $(MKLROOT)/lib/libmkl_core.so \
+                       -Wl,--end-group -lgomp -lpthread -lm -ldl \
+                       -Wl,-rpath,$(MKLROOT)/lib
+
+            # Include MKL kernels
+            LIB_MKL_SRC = $(wildcard $(LIB_DIR)/mkl/*_int*.cc)
+            LIB_SRC += $(LIB_MKL_SRC)
+        else
+            # Use AVX kernels
+            LIB_AVX_SRC = $(wildcard $(LIB_DIR)/avx/*.cc)
+            LIB_SRC += $(LIB_AVX_SRC)
+            CXXFLAGS += -mavx2 -mfma -ffast-math -DUSE_INT8_INT4_PRODUCT -fpermissive -DQM_x86
+        endif
 	endif
 else ifeq ($(shell uname -m),aarch64)
 	ifdef CUDA_AVAILABLE
