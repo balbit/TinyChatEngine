@@ -21,7 +21,17 @@ LDFLAGS = -Wl,--start-group \
           -Wl,--end-group -lgomp -lpthread -lm -ldl
 
 # Source Files
-SRC = matmul_mkl_test.cc matmul_mkl_int8.cc
+SRC = matmul_mkl_test.cc
+
+LIB_DIR = ../
+LIB_MKL_SRC = $(wildcard $(LIB_DIR)/mkl/*_int*.cc)
+LIB_SRC = $(wildcard $(LIB_DIR)/*.cc)
+LIB_SRC += $(LIB_MKL_SRC)
+
+LIB_AVX_SRC = $(wildcard $(LIB_DIR)/avx/*.cc)
+LIB_SRC += $(LIB_AVX_SRC)
+
+SRC += $(LIB_SRC)
 #  ../matmul_int8.cc
 
 # Object Files

@@ -4,7 +4,9 @@
 #include <iostream>
 #include <random>
 
-#include "../matmul.h"
+#include "matmul_mkl.h"
+#include "../avx/matmul_avx.h"
+
 using namespace std;
 
 // Function to fill matrices with random int8 values
@@ -19,7 +21,7 @@ void fill_matrix_int8(int8_t *data, int rows, int cols) {
 
         for (int i = 0; i < rows * cols; ++i) {
             // int value = std::round(d(gen));
-            int value = rand() % 5 - 2;
+            int value = rand() % 7 - 3;
             data[i] = static_cast<int8_t>(std::max(-128, std::min(127, value)));
         }
     }
@@ -38,14 +40,14 @@ bool compare_matrices(const int8_t *mat1, const int8_t *mat2, int rows, int cols
 
 void test_mat_mul_int8() {
     // Matrix dimensions
-    int M = 2; // Rows in A and C
-    int N = 2; // Columns in B and C
-    int K = 2; // Columns in A and rows in B
+    int M = 64; // Rows in A and C
+    int N = 64; // Columns in B and C
+    int K = 64; // Columns in A and rows in B
 
     // Allocate matrices
     int8_t *A_data = new int8_t[M * K];
     int8_t *B_data = new int8_t[N * K];
-    int8_t *C_naive_int8 = new int8_t[M * N];
+    int8_t *C_avx_int8 = new int8_t[M * N];
     int8_t *C_mkl_int8 = new int8_t[M * N];
 
     // Fill matrices with random data
@@ -83,6 +85,26 @@ void test_mat_mul_int8() {
         std::cout << std::endl;
     }
 
+    // Create bias matrix
+    int8_t bias_data[N] = {0};
+    fill_matrix_int8(bias_data, 1, N);
+    matrix Bias = {
+        .row = 1,
+        .column = N,
+        .int8_data_ptr = bias_data,
+        .qparams = {
+            .scale = 1.0f,
+            .zero_point = 0,
+            .q_min = -128,
+            .q_max = 127
+        }
+    };
+    std::cout<<"Bias matrix created"<<std::endl;
+    for (int i = 0; i < N; i++) {
+        std::cout<<static_cast<int>(bias_data[i])<<" ";
+    }
+    std::cout<<std::endl;
+
     // Prepare matrices
     // matrix A = {M, K, nullptr, nullptr, nullptr, nullptr, A_data, nullptr, nullptr, {}};
     matrix A = {
@@ -90,7 +112,7 @@ void test_mat_mul_int8() {
         .column = K,
         .int8_data_ptr = A_data,
         .qparams = {
-            .scale = 1.0f,
+            .scale = 0.8f,
             .zero_point = 0,
         }
     };
@@ -101,16 +123,16 @@ void test_mat_mul_int8() {
         .column = N,
         .int8_data_ptr = B_data,
         .qparams = {
-            .scale = 1.0f,
+            .scale = 1.2f,
             .zero_point = 0,
         }
     };
 
-    // Initialize output matrix C1 (for naive implementation)
+    // Initialize output matrix C1 (for avx implementation)
     matrix C1 = {
         .row = M,
         .column = N,
-        .int8_data_ptr = C_naive_int8,  // We'll store the final result as int8_t
+        .int8_data_ptr = C_avx_int8,  // We'll store the final result as int8_t
         .qparams = {
             .scale = 1.0f,
             .zero_point = 0,
@@ -132,57 +154,63 @@ void test_mat_mul_int8() {
         }
     };
 
-    cout<<"Ok"<<endl;
-    matmul_params params = {A, B, C1, {}, {}, 1.0f, 0.0f};
-    params.alpha = 0.1f;
 
-    matmul::MatmulOperator op = matmul::CreateMatmulOperator();
 
-    // Perform naive multiplication
-    op.naive_mat_mul_int8(&params);
+    matmul_params params = {A, B, C1, Bias, {}, 0.1f, 1.7f};
 
-    cout<<"Ok"<<endl;
+    matmul::MatmulOperatorAVX op_avx;
+    matmul::MatmulOperatorMKL op_mkl;
 
-    // Copy result to C_mkl for comparison
-    // std::copy(C_naive_int8, C_naive_int8 + M * N, C_mkl_int8);
-    cout<<"Ok"<<endl;
+    // Perform avx multiplication
+    // Currently confirmed operations:
+    // mat_mul_accelerator_int8_fast_2x2_32unroll_nobias(&params);
+
+    op_avx.mat_mul_accelerator_int8_fast_2x2_32unroll(&params);
 
     // Prepare parameters for MKL multiplication
     params.C = C2;
 
     // Perform MKL multiplication
-    op.mat_mul_mkl_int8(&params);
-    cout<<"Ok"<<endl;
+    op_mkl.mat_mul_accelerator_int8_fast_2x2_32unroll(&params);
 
     // Print the results
-    std::cout << "Matrix C (naive):" << std::endl;
-    for (int i = 0; i < M; ++i) {
-        for (int j = 0; j < N; ++j) {
-            std::cout << (int)C_naive_int8[i * N + j] << " ";
-        }
-        std::cout << std::endl;
-    }
+    // std::cout << "Matrix C (avx):" << std::endl;
+    // for (int i = 0; i < M; ++i) {
+    //     for (int j = 0; j < N; ++j) {
+    //         std::cout << (int)C_avx_int8[i * N + j] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
-    std::cout << "Matrix C (MKL):" << std::endl;
+    // std::cout << "Matrix C (MKL):" << std::endl;
+    // for (int i = 0; i < M; ++i) {
+    //     for (int j = 0; j < N; ++j) {
+    //         std::cout << (int)C_mkl_int8[i * N + j] << " ";
+    //     }
+    //     std::cout << std::endl;
+    // }
+
+
+    std::cout << "Matrix C (avx) - (MKL):" << std::endl;
     for (int i = 0; i < M; ++i) {
         for (int j = 0; j < N; ++j) {
-            std::cout << (int)C_mkl_int8[i * N + j] << " ";
+            std::cout << (int)C_avx_int8[i * N + j] - (int)C_mkl_int8[i * N + j] << " ";
         }
         std::cout << std::endl;
     }
 
 
     // Validate results
-    if (compare_matrices(C_naive_int8, C_mkl_int8, M, N)) {
-        std::cout << "Test passed: MKL output matches naive implementation." << std::endl;
+    if (compare_matrices(C_avx_int8, C_mkl_int8, M, N)) {
+        std::cout << "Test passed: MKL output matches avx implementation." << std::endl;
     } else {
-        std::cout << "Test failed: MKL output does not match naive implementation." << std::endl;
+        std::cout << "Test failed: MKL output does not match avx implementation." << std::endl;
     }
 
     // Clean up
     delete[] A_data;
     delete[] B_data;
-    delete[] C_naive_int8;
+    delete[] C_avx_int8;
     delete[] C_mkl_int8;
 }
 
