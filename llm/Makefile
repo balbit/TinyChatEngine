@@ -104,9 +104,12 @@ ifeq ($(shell uname -m),x86_64)
                        -Wl,--end-group -lgomp -lpthread -lm -ldl \
                        -Wl,-rpath,$(MKLROOT)/lib
 
-            # Include MKL kernels
+            # Include MKL kernels and AVX kernels
             LIB_MKL_SRC = $(wildcard $(LIB_DIR)/mkl/*_int*.cc)
             LIB_SRC += $(LIB_MKL_SRC)
+
+            LIB_AVX_SRC = $(wildcard $(LIB_DIR)/avx/*.cc)
+            LIB_SRC += $(LIB_AVX_SRC)
         else
             # Use AVX kernels
             LIB_AVX_SRC = $(wildcard $(LIB_DIR)/avx/*.cc)

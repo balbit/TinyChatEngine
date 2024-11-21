@@ -1,12 +1,12 @@
-#ifndef MATMUL_OPERATOR_AVX_H
-#define MATMUL_OPERATOR_AVX_H
+#ifndef MATMUL_OPERATOR_MKL_H
+#define MATMUL_OPERATOR_MKL_H
 
 #include "matmul.h"
 #include <iostream>
 
 namespace matmul {
 
-class MatmulOperatorAVX : public MatmulOperator {
+class MatmulOperatorMKL : public MatmulOperator {
    public:
     void mat_mul_accelerator_transposed_fastover_column(const struct matmul_params* params) override;
     void mat_mul_accelerator_transposed_fastover_column_bias(const struct matmul_params* params) override;
@@ -27,8 +27,8 @@ class MatmulOperatorAVX : public MatmulOperator {
     void mat_mul_accelerator_int4_fast_no_offset(const struct matmul_params* params) override;
 };
 
-inline MatmulOperator& CreateMatmulOperatorAVX() {
-    static MatmulOperatorAVX instance;
+inline MatmulOperator& CreateMatmulOperatorMKL() {
+    static MatmulOperatorMKL instance;
     return instance;
 }
 
