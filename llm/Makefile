@@ -22,7 +22,9 @@ TARGET = $(TEST_TARGET_GENERAL) $(TEST_TARGET_IF_CUDA) $(PROFILE_TARGET) $(CHAT_
 BUILDDIR := build/transformer
 PROFILEDIR := build_profile/transformer
 LIB_DIR = ../kernels
+FACTORY_SRC = $(LIB_DIR)/matmul_factory.cc # For dynamic dispatching of matmul kernels
 LIB_SRC = $(wildcard $(LIB_DIR)/*.cc)
+LIB_SRC += $(FACTORY_SRC)
 INCLUDE_DIRS = -I$(LIB_DIR) -I./include -I./include/nn_modules -I./json/single_include/ -I./half-2.2.0/include/
 LIB =
 LDFLAGS =
@@ -89,7 +91,7 @@ ifeq ($(shell uname -m),x86_64)
             MKLROOT ?= /home/elliotliu/miniconda
 
             # Add MKL compiler flags
-            CXXFLAGS += -DMKL_ILP64 -DUSE_MKL -m64 -mavx2 -mfma -ffast-math -DUSE_INT8_INT4_PRODUCT -DQM_x86
+            CXXFLAGS += -DMKL_ILP64 -DUSE_MKL -m64 -mavx2 -mfma -ffast-math -DQM_MKL -DQM_x86
 
             # Add MKL include directories
             INCLUDE_DIRS += -I$(MKLROOT)/include

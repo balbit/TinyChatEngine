@@ -6,7 +6,7 @@
 #include <xmmintrin.h>  // intel SSE intrinsic
 #include <iostream>
 
-#include "../matmul.h"
+#include "matmul_avx.h"
 
 namespace matmul {
 
@@ -27,7 +27,7 @@ void *mat_mul_transposed_fastover_column_func(void *args) {
 
     __m256 zero256 = _mm256_setzero_ps();
 
-    // std::cerr<<"mat_mul_transposed_fastover_column_func"<<std::endl;
+    // //std::cerr<<"mat_mul_transposed_fastover_column_func"<<std::endl;
 
     for (i = 0; i < C->row; i++) {
         for (j = start_i; j + 1 < end_i; j += 2) {
@@ -35,9 +35,9 @@ void *mat_mul_transposed_fastover_column_func(void *args) {
             __m256 *A256 = (__m256 *)&data_A[i * A->column];
             __m256 *B256 = (__m256 *)&data_B[j * B->row];
             __m256 *B256_1 = (__m256 *)&data_B[(j + 1) * B->row];
-            // std::cerr<<"B dimensions: "<<B->row<<" "<<B->column<<std::endl;
-            // std::cerr<<"indices: "<<i * A->column<<" "<<j * B->row<<" "<<(j + 1) * B->row<<std::endl;
-            // std::cerr<<"i: "<<i<<" j: "<<j<<std::endl;
+            // //std::cerr<<"B dimensions: "<<B->row<<" "<<B->column<<std::endl;
+            // //std::cerr<<"indices: "<<i * A->column<<" "<<j * B->row<<" "<<(j + 1) * B->row<<std::endl;
+            // //std::cerr<<"i: "<<i<<" j: "<<j<<std::endl;
             for (k = 0; k < A->column; k += 8) {
                 __m256 Aik = _mm256_load_ps((const float *)A256++);
                 __m256 Bjk = _mm256_load_ps((const float *)B256++);
@@ -45,7 +45,7 @@ void *mat_mul_transposed_fastover_column_func(void *args) {
                 acc = _mm256_add_ps(acc, _mm256_mul_ps(Aik, Bjk));
                 acc1 = _mm256_add_ps(acc1, _mm256_mul_ps(Aik, Bj1k));
             }
-            // std::cerr<<"completed worker i: "<<i<<" j: "<<j<<std::endl;
+            // //std::cerr<<"completed worker i: "<<i<<" j: "<<j<<std::endl;
             float *ptr = (float *)&acc;
             data_C[i * C->column + j] = ptr[0] + ptr[1] + ptr[2] + ptr[3] + ptr[4] + ptr[5] + ptr[6] + ptr[7];
             ptr = (float *)&acc1;
@@ -68,8 +68,8 @@ void *mat_mul_transposed_fastover_column_func(void *args) {
     return NULL;
 }
 
-void MatmulOperator::mat_mul_accelerator_transposed_fastover_column(const struct matmul_params *params) {
-    // std::cerr<<"mat_mul_accelerator_transposed_fastover_column"<<std::endl;
+void MatmulOperatorAVX::mat_mul_accelerator_transposed_fastover_column(const struct matmul_params *params) {
+    //std::cerr<<"mat_mul_accelerator_transposed_fastover_column"<<std::endl;
     int i, j, k;
 
     int num_thread = params->opt_params.num_thread;
@@ -121,7 +121,7 @@ void fp32_ref_matmul_bias(const struct matmul_params *params) {
     }
 }
 
-void MatmulOperator::mat_mul_accelerator_transposed_fastover_column_bias(const struct matmul_params *params) {
+void MatmulOperatorAVX::mat_mul_accelerator_transposed_fastover_column_bias(const struct matmul_params *params) {
     fp32_ref_matmul_bias(params);
 }
 

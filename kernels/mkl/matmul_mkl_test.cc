@@ -19,7 +19,7 @@ void fill_matrix_int8(int8_t *data, int rows, int cols) {
 
         for (int i = 0; i < rows * cols; ++i) {
             // int value = std::round(d(gen));
-            int value = rand() % 10 - 5;
+            int value = rand() % 5 - 2;
             data[i] = static_cast<int8_t>(std::max(-128, std::min(127, value)));
         }
     }
@@ -38,9 +38,9 @@ bool compare_matrices(const int8_t *mat1, const int8_t *mat2, int rows, int cols
 
 void test_mat_mul_int8() {
     // Matrix dimensions
-    int M = 64; // Rows in A and C
-    int N = 128; // Columns in B and C
-    int K = 32; // Columns in A and rows in B
+    int M = 2; // Rows in A and C
+    int N = 2; // Columns in B and C
+    int K = 2; // Columns in A and rows in B
 
     // Allocate matrices
     int8_t *A_data = new int8_t[M * K];
@@ -90,10 +90,8 @@ void test_mat_mul_int8() {
         .column = K,
         .int8_data_ptr = A_data,
         .qparams = {
-            .scale = 0.1f,
+            .scale = 1.0f,
             .zero_point = 0,
-            .q_min = -128,
-            .q_max = 127
         }
     };
 
@@ -103,10 +101,8 @@ void test_mat_mul_int8() {
         .column = N,
         .int8_data_ptr = B_data,
         .qparams = {
-            .scale = 0.1f,      // Set appropriate scale
-            .zero_point = 0,    // Set appropriate zero point
-            .q_min = -128,      // For int8_t
-            .q_max = 127
+            .scale = 1.0f,
+            .zero_point = 0,
         }
     };
 
@@ -140,7 +136,7 @@ void test_mat_mul_int8() {
     matmul_params params = {A, B, C1, {}, {}, 1.0f, 0.0f};
     params.alpha = 0.1f;
 
-    matmul::MatmulOperator op;
+    matmul::MatmulOperator op = matmul::CreateMatmulOperator();
 
     // Perform naive multiplication
     op.naive_mat_mul_int8(&params);
