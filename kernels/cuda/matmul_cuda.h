@@ -1,15 +1,14 @@
-#ifndef MATMUL_OPERATOR_AVX_H
-#define MATMUL_OPERATOR_AVX_H
+#ifndef MATMUL_OPERATOR_CUDA_H
+#define MATMUL_OPERATOR_CUDA_H
 
 #include "matmul.h"
 #include <iostream>
 
 namespace matmul {
 
-class MatmulOperatorAVX : public MatmulOperator {
+class MatmulOperatorCUDA : public MatmulOperator {
    public:
     void mat_mul_accelerator_transposed_fastover_column(const struct matmul_params* params) override;
-    void mat_mul_accelerator_transposed_fastover_column_bias(const struct matmul_params* params) override;
 
     // int8 operations
     void mat_mul_accelerator_int8_fast_32unroll_over_column(const struct matmul_params* params) override;
@@ -21,14 +20,16 @@ class MatmulOperatorAVX : public MatmulOperator {
     void mat_mul_accelerator_int8_fast_2x2_32unroll_bfp32_ofp32(const struct matmul_params* params) override;
     void mat_mul_accelerator_int8_fast_2x2_32unroll_bfp32_ofp32_over_column(const struct matmul_params* params) override;
 
-    void mat_mul_accelerator_int8_int4_fast_no_offset(struct matmul_params* params) override;
-
     void mat_mul_accelerator_int4_fast(const struct matmul_params* params) override;
     void mat_mul_accelerator_int4_fast_no_offset(const struct matmul_params* params) override;
+
+    void gemv_forward_cuda(const struct matmul_params* params) override;
+    void naive_mat_mul_fp16_int4(const struct matmul_params* params) override;
 };
 
-inline MatmulOperator& CreateMatmulOperatorAVX() {
-    static MatmulOperatorAVX instance;
+// Declaring as static to prevent linker errors due to both cc and cu files
+static inline MatmulOperator& CreateMatmulOperatorCUDA() {
+    static MatmulOperatorCUDA instance;
     return instance;
 }
 
