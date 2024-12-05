@@ -6,7 +6,6 @@
 namespace matmul {
 
 void MatmulOperatorCUDA::naive_mat_mul_fp16_int4(const struct matmul_params *params) {
-    std::cout<<"naive_mat_mul"<<std::endl;
     const struct matrix *A = &params->A, *B = &params->B, *C = &params->C;
     const int block_size = params->block_size;
     // CHECK_MATRICES_int4weight(A, B, C);
