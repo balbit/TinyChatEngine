@@ -25,6 +25,11 @@ class MatmulOperatorNeon : public MatmulOperator {
 
     void mat_mul_accelerator_int4_fast(const struct matmul_params* params) override;
     void mat_mul_accelerator_int4_fast_no_offset(const struct matmul_params* params) override;
+    void gemm_accelerator_int8_int4_fast_no_offset(struct matmul_params* params) override;
+    void gemv_accelerator_int8_int4_fast_no_offset(struct matmul_params* params) override;
+    void gemm_accelerator_int8_int4_fast_no_offset_v2(struct matmul_params* params) override;
+    void cblas_gemm_accelerator_no_offset(struct matmul_params* params) override;
+    void mat_mul_accelerator_untransposed_fastover_column(const struct matmul_params* params) override;
 };
 
 inline MatmulOperator& CreateMatmulOperatorNeon() {

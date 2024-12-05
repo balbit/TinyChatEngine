@@ -11,7 +11,7 @@ namespace matmul {
 MatmulOperator& CreateMatmulOperatorMKL();
 MatmulOperator& CreateMatmulOperatorAVX();
 MatmulOperator& CreateMatmulOperatorCUDA();
-MatmulOperator& CreateMatmulOperatorNEON();
+MatmulOperator& CreateMatmulOperatorNeon();
 MatmulOperator& CreateMatmulOperatorRef();
 
 MatmulOperator& CreateMatmulOperator() {
@@ -20,7 +20,7 @@ MatmulOperator& CreateMatmulOperator() {
 #elif defined(QM_MKL)
     return CreateMatmulOperatorMKL();
 #elif defined(QM_ARM)
-    return CreateMatmulOperatorNEON();
+    return CreateMatmulOperatorNeon();
 #elif defined(QM_x86)
     return CreateMatmulOperatorAVX(); // Default to AVX
 #else
